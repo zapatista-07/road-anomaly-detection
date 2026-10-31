@@ -6,6 +6,8 @@ import numpy as np
 import streamlit as st
 from PIL import Image
 import warnings
+import os
+import gdown
 
 warnings.filterwarnings('ignore')
 
@@ -21,6 +23,27 @@ st.set_page_config(
 DEVICE = torch.device('cpu')
 MODEL_PATH = 'modele_final.pth'
 INPUT_SIZE = (256, 256)
+
+# ID Google Drive du modèle - À REMPLACER avec votre ID !
+# Format: https://drive.google.com/file/d/[VOTRE_ID_ICI]/view
+GDRIVE_FILE_ID = "1noNvTJH83GmsXUhx4Jh7FzSbfLol6c3W"
+
+def download_model_from_gdrive():
+    """Télécharge le modèle depuis Google Drive si pas présent"""
+    if not os.path.exists(MODEL_PATH):
+        if GDRIVE_FILE_ID == "VOTRE_ID_GOOGLE_DRIVE_ICI":
+            st.error("❌ Configurez l'ID Google Drive dans le code !")
+            return False
+        try:
+            with st.spinner("📥 Téléchargement du modèle depuis Google Drive..."):
+                url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+                gdown.download(url, MODEL_PATH, quiet=False)
+                st.success("✅ Modèle téléchargé avec succès!")
+                return True
+        except Exception as e:
+            st.error(f"❌ Erreur téléchargement: {e}")
+            return False
+    return True
 
 # CSS personnalisé
 st.markdown("""
@@ -212,12 +235,15 @@ def main():
     
     # Chargement du modèle
     with st.spinner("🔄 Chargement du modèle..."):
+        # Télécharger depuis Google Drive si nécessaire
+        download_model_from_gdrive()
         model = load_model()
     
     if model is not None:
         st.success("✅ Modèle chargé avec succès!")
     else:
-        st.error("❌ Impossible de charger le modèle. Vérifiez que 'modele_final.pth' existe.")
+        st.error("❌ Impossible de charger le modèle.")
+        st.info("💡 Vérifiez que l'ID Google Drive est correct dans le code.")
         st.stop()
     
     # Upload d'image
