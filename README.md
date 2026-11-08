@@ -1,119 +1,91 @@
-# Déploiement de modèles Deep Learning avec Flask
+# Détection d'Anomalie — Projet Deep Learning
 
-Application web Flask servant deux modèles de deep learning :
+Plateforme d'intelligence artificielle développée par une équipe de 6 étudiants.
 
-| Modèle | Tâche | Architecture | Sortie |
-|--------|-------|--------------|--------|
-| `resnet18_types.pth` | Classification d'images | ResNet18 (fine-tuné) | 3 classes |
-| `unet_best.pth` | Segmentation binaire | U-Net | Masque 1 canal |
+---
 
-## Structure du projet
+## 🚀 Installation rapide
 
-```
-.
-├── app.py                  # Application Flask (routes + API)
-├── models.py               # Architectures U-Net/ResNet18 + preprocessing + inférence
-├── templates/
-│   └── index.html          # Interface web (upload + résultats)
-├── requirements.txt        # Dépendances Python
-├── resnet18_types.pth      # Poids ResNet18
-└── unet_best.pth           # Poids U-Net
+### 1. Cloner le repo
+```bash
+git clone https://github.com/zapatista-07/road-anomaly-detection.git
+cd road-anomaly-detection
 ```
 
-## Installation
-
+### 2. Installer les dépendances
 ```bash
 pip install -r requirements.txt
 ```
 
-> PyTorch (torch + torchvision) nécessite une installation compatible avec votre
-> configuration CUDA. Voir [pytorch.org](https://pytorch.org/get-started/locally/)
-> si vous utilisez le GPU.
+### 3. Télécharger les fichiers modèles
 
-## Lancement
+> ⚠️ Les fichiers `.pth` sont trop lourds pour GitHub. Chaque membre partage ses modèles séparément.
 
+#### 📁 Modèles de Louay (Classification + Segmentation)
+Télécharge les deux fichiers et place-les dans `models/objectif_louay/` :
+
+| Fichier | Description | Lien |
+|---------|-------------|------|
+| `resnet18_types.pth` | Classification 3 classes (ResNet18) | *(lien à ajouter)* |
+| `unet_best.pth` | Segmentation binaire (U-Net) | *(lien à ajouter)* |
+
+```
+models/
+└── objectif_louay/
+    ├── resnet18_types.pth   ← mettre ici
+    └── unet_best.pth        ← mettre ici
+```
+
+### 4. Lancer le serveur Flask
 ```bash
+cd app
 python app.py
 ```
 
-Puis ouvrez **http://127.0.0.1:5000** dans votre navigateur.
+Ouvrir **http://127.0.0.1:5000** dans le navigateur.
 
-## Interface web
+---
 
-1. Choisissez la tâche (Classification ou Segmentation)
-2. Importez une image (glisser-déposer ou clic)
-3. Cliquez sur « Lancer la prédiction »
-4. Visualisez le résultat :
-   - **Classification** : classe prédite, confiance, barres de probabilités
-   - **Segmentation** : masque binaire (zones segmentées en blanc) + ratio de surface
+## 📁 Structure du projet
 
-## API REST
-
-### Santé du service
 ```
-GET /health
-```
-
-### Classification
-```
-POST /predict/classify
-Content-Type: multipart/form-data
-Body: image=<fichier image>
-```
-Réponse :
-```json
-{
-  "success": true,
-  "result": {
-    "predicted_class": 1,
-    "predicted_label": "Type 1",
-    "confidence": 0.873,
-    "probabilities": { "Type 0": 0.05, "Type 1": 0.87, "Type 2": 0.08 }
-  }
-}
+road-anomaly-detection/
+├── app/
+│   ├── app.py              # Serveur Flask (routes + API)
+│   ├── models.py           # Architectures ResNet18 + U-Net + inférence
+│   └── templates/
+│       ├── home.html       # Page d'accueil équipe
+│       └── index.html      # Interface démo
+├── models/
+│   ├── objectif_louay/     # Modèles Louay (Classification + Segmentation)
+│   ├── objectif_samar/     # Modèles Samar
+│   ├── objectif_azza/      # Modèles Azza
+│   ├── objectif_roua_lz/   # Modèles Roua LZ
+│   ├── objectif_roua_toui/ # Modèles Roua Toui
+│   └── objectif_ghofrane/  # Modèles Ghofrane
+├── requirements.txt
+└── README.md
 ```
 
-### Segmentation
-```
-POST /predict/segment
-Content-Type: multipart/form-data
-Body: image=<fichier image>
-```
-Réponse :
-```json
-{
-  "success": true,
-  "result": {
-    "mask": "data:image/png;base64,<...>",
-    "foreground_ratio": 0.342
-  }
-}
-```
+---
 
-## Personnalisation
+## 👥 Membres de l'équipe
 
-### Noms des classes (ResNet18)
-Les noms des 3 classes sont définis dans `models.py` :
+| Membre | Objectif | Statut |
+|--------|----------|--------|
+| Louay | Déploiement Flask — ResNet18 + U-Net | ✅ Terminé |
+| Samar | - | 🔄 En cours |
+| Azza | - | 🔄 En cours |
+| Roua LZ | - | 🔄 En cours |
+| Roua Toui | - | 🔄 En cours |
+| Ghofrane | - | 🔄 En cours |
 
-```python
-CLASS_NAMES = ["Type 0", "Type 1", "Type 2"]
-```
+---
 
-Remplacez-les par les vraies classes de votre jeu d'entraînement.
+## 🌐 URLs
 
-### Tailles d'entrée
-```python
-RESNET_INPUT_SIZE = 224   # Classification
-UNET_INPUT_SIZE   = 256   # Segmentation
-```
-
-### Normalisation
-Les deux modèles utilisent la normalisation ImageNet (mean/std). Si vos modèles
-ont été entraînés avec une normalisation différente, ajustez `IMAGENET_MEAN` et
-`IMAGENET_STD` dans `models.py`.
-
-## Exemple d'appel API avec cURL
-```bash
-curl -X POST http://127.0.0.1:5000/predict/classify \
-     -F "image=@photo.jpg"
-```
+| Page | URL |
+|------|-----|
+| Accueil équipe | http://127.0.0.1:5000/ |
+| Démo modèles | http://127.0.0.1:5000/demo |
+| Santé API | http://127.0.0.1:5000/health |
