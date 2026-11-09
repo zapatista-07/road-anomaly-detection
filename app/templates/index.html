@@ -14,31 +14,46 @@
         h1 { font-size: 1.6rem; margin-bottom: .25rem; color: #f8fafc; }
         .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: .9rem; }
 
+        .back-link {
+            align-self: flex-start; margin-bottom: 1.5rem;
+            color: #64748b; font-size: .85rem; text-decoration: none;
+            display: flex; align-items: center; gap: .4rem;
+            transition: color .2s;
+        }
+        .back-link:hover { color: #94a3b8; }
+
         .card {
             background: #1e293b; border-radius: 12px; padding: 1.75rem;
-            width: 100%; max-width: 640px; margin-bottom: 1.5rem;
+            width: 100%; max-width: 680px; margin-bottom: 1.5rem;
             border: 1px solid #334155;
         }
         .card h2 { font-size: 1.05rem; margin-bottom: 1rem; color: #cbd5e1; }
 
-        /* Zone de choix du modèle */
-        .model-tabs { display: flex; gap: .75rem; margin-bottom: 1.25rem; }
+        /* Onglets */
+        .model-tabs { display: flex; gap: .6rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .model-tab {
-            flex: 1; padding: .75rem 1rem; border-radius: 8px; cursor: pointer;
+            flex: 1; min-width: 160px; padding: .75rem 1rem; border-radius: 8px; cursor: pointer;
             border: 2px solid #334155; background: #0f172a; color: #94a3b8;
-            text-align: center; font-size: .9rem; transition: all .2s;
+            text-align: center; font-size: .85rem; transition: all .2s;
         }
-        .model-tab.active {
-            border-color: #3b82f6; background: #1e3a5f; color: #f8fafc;
-        }
-        .model-tab small { display: block; font-size: .75rem; opacity: .7; margin-top: 2px; }
+        .model-tab.active        { border-color: #3b82f6; background: #1e3a5f; color: #f8fafc; }
+        .model-tab.active.green  { border-color: #10b981; background: #064e3b22; }
+        .model-tab.active.blue   { border-color: #60a5fa; background: #1e3a5f22; }
+        .model-tab small { display: block; font-size: .72rem; opacity: .7; margin-top: 2px; }
 
-        /* Zone d'upload */
+        /* Author badge */
+        .author-badge {
+            display: inline-block; font-size: .65rem; font-weight: 600;
+            padding: .15rem .5rem; border-radius: 999px; margin-top: 3px;
+            background: #1e2d4a; color: #60a5fa; border: 1px solid #334155;
+        }
+
+        /* Upload */
         .drop-zone {
             border: 2px dashed #475569; border-radius: 10px; padding: 2rem;
             text-align: center; cursor: pointer; transition: border-color .2s;
         }
-        .drop-zone:hover { border-color: #3b82f6; }
+        .drop-zone:hover  { border-color: #3b82f6; }
         .drop-zone.dragover { border-color: #3b82f6; background: #1e3a5f; }
         .drop-zone p { color: #64748b; font-size: .9rem; }
         #fileInput { display: none; }
@@ -52,33 +67,50 @@
             border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
             background: #3b82f6; color: #fff; transition: background .2s;
         }
-        .btn:hover { background: #2563eb; }
+        .btn:hover    { background: #2563eb; }
         .btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
 
         /* Résultats */
         .result-card { display: none; }
         .result-card.show { display: block; }
-        .pred-label {
-            font-size: 1.4rem; font-weight: 700; color: #3b82f6; margin-bottom: .25rem;
-        }
+
+        /* Classification */
+        .pred-label { font-size: 1.4rem; font-weight: 700; color: #3b82f6; margin-bottom: .25rem; }
         .conf { color: #94a3b8; font-size: .9rem; margin-bottom: 1rem; }
         .bar-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem; }
         .bar-label { width: 90px; font-size: .85rem; color: #cbd5e1; text-align: right; }
         .bar-track { flex: 1; height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; }
-        .bar-fill { height: 100%; border-radius: 5px; background: #3b82f6; transition: width .5s; }
-        .bar-val { width: 50px; font-size: .8rem; color: #64748b; text-align: left; }
-        #maskPreview { max-width: 100%; border-radius: 8px; margin-top: .75rem; }
-        .fg-ratio { color: #94a3b8; font-size: .9rem; margin-top: .5rem; }
+        .bar-fill  { height: 100%; border-radius: 5px; background: #3b82f6; transition: width .5s; }
+        .bar-val   { width: 50px; font-size: .8rem; color: #64748b; text-align: left; }
 
+        /* Segmentation */
+        #maskPreview { max-width: 100%; border-radius: 8px; margin-top: .75rem; }
+        .fg-ratio    { color: #94a3b8; font-size: .9rem; margin-top: .5rem; }
+
+        /* Détection */
+        #annotatedPreview { max-width: 100%; border-radius: 8px; margin-top: .75rem; }
+        .det-count { font-size: 1.1rem; font-weight: 600; color: #60a5fa; margin-bottom: .75rem; }
+        .det-list  { display: flex; flex-direction: column; gap: .5rem; margin-top: .75rem; }
+        .det-item  {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #0f172a; border: 1px solid #1e2d4a; border-radius: 8px;
+            padding: .55rem .85rem; font-size: .85rem;
+        }
+        .det-item .det-label { color: #f1f5f9; font-weight: 500; }
+        .det-item .det-score {
+            background: #1e3a5f; color: #60a5fa; padding: .2rem .55rem;
+            border-radius: 999px; font-size: .75rem; font-weight: 600;
+        }
+        .det-item .det-box { color: #64748b; font-size: .75rem; }
+
+        /* Erreur & spinner */
         .error-msg {
             background: #7f1d1d33; border: 1px solid #7f1d1d; color: #fca5a5;
             padding: .75rem 1rem; border-radius: 8px; margin-top: 1rem; font-size: .9rem;
             display: none;
         }
         .error-msg.show { display: block; }
-        .spinner {
-            display: none; text-align: center; padding: 1rem; color: #64748b;
-        }
+        .spinner { display: none; text-align: center; padding: 1rem; color: #64748b; }
         .spinner.show { display: block; }
         .spinner::after {
             content: ""; display: inline-block; width: 24px; height: 24px;
@@ -89,18 +121,29 @@
     </style>
 </head>
 <body>
+    <a href="/" class="back-link">← Retour à l'accueil</a>
+
     <h1>Déploiement de modèles Deep Learning</h1>
-    <p class="subtitle">ResNet18 (classification) · U-Net (segmentation) — Flask</p>
+    <p class="subtitle">ResNet18 · U-Net · Mask R-CNN — Flask</p>
 
     <!-- Choix du modèle -->
     <div class="card">
         <h2>Choisir une tâche</h2>
         <div class="model-tabs">
             <div class="model-tab active" data-model="classify" onclick="selectModel('classify')">
-                Identifier le type d'objet <small>ResNet18 — 3 classes</small>
+                Identifier le type d'objet
+                <small>ResNet18 — 3 classes</small>
+                <span class="author-badge">Louay</span>
             </div>
             <div class="model-tab" data-model="segment" onclick="selectModel('segment')">
-                Détecter les zones anormales <small>U-Net — masque binaire</small>
+                Détecter les zones anormales
+                <small>U-Net — masque binaire</small>
+                <span class="author-badge">Louay</span>
+            </div>
+            <div class="model-tab" data-model="detect" onclick="selectModel('detect')">
+                Détecter les instances
+                <small>Mask R-CNN — boîtes + masques</small>
+                <span class="author-badge">Samar</span>
             </div>
         </div>
 
@@ -125,7 +168,7 @@
 
     <!-- Résultats classification -->
     <div class="card result-card" id="classifyResult">
-        <h2>Résultat — Classification</h2>
+        <h2>Résultat — Classification <small style="color:#64748b;font-weight:400">ResNet18 · Louay</small></h2>
         <div class="pred-label" id="predLabel"></div>
         <div class="conf" id="predConf"></div>
         <div id="probBars"></div>
@@ -133,28 +176,41 @@
 
     <!-- Résultats segmentation -->
     <div class="card result-card" id="segmentResult">
-        <h2>Résultat — Segmentation</h2>
+        <h2>Résultat — Segmentation <small style="color:#64748b;font-weight:400">U-Net · Louay</small></h2>
         <img id="maskPreview" alt="Masque de segmentation">
         <div class="fg-ratio" id="fgRatio"></div>
+    </div>
+
+    <!-- Résultats détection -->
+    <div class="card result-card" id="detectResult">
+        <h2>Résultat — Détection <small style="color:#64748b;font-weight:400">Mask R-CNN · Samar</small></h2>
+        <div class="det-count" id="detCount"></div>
+        <img id="annotatedPreview" alt="Image annotée">
+        <div class="det-list" id="detList"></div>
     </div>
 
     <script>
         let currentModel = "classify";
         let selectedFile = null;
 
+        // Activer l'onglet selon l'URL (?model=detect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const initModel = urlParams.get("model");
+        if (initModel) selectModel(initModel);
+
         function selectModel(model) {
             currentModel = model;
             document.querySelectorAll(".model-tab").forEach(t => t.classList.remove("active"));
             document.querySelector(`[data-model="${model}"]`).classList.add("active");
-            // Réinitialiser les résultats
             document.getElementById("classifyResult").classList.remove("show");
             document.getElementById("segmentResult").classList.remove("show");
+            document.getElementById("detectResult").classList.remove("show");
             document.getElementById("errorMsg").classList.remove("show");
         }
 
         // Upload : input + drag & drop
         const fileInput = document.getElementById("fileInput");
-        const dropZone = document.getElementById("dropZone");
+        const dropZone  = document.getElementById("dropZone");
 
         fileInput.addEventListener("change", e => handleFile(e.target.files[0]));
 
@@ -174,40 +230,42 @@
             };
             reader.readAsDataURL(file);
             document.getElementById("predictBtn").disabled = false;
-            // Cacher anciens résultats
             document.getElementById("classifyResult").classList.remove("show");
             document.getElementById("segmentResult").classList.remove("show");
+            document.getElementById("detectResult").classList.remove("show");
             document.getElementById("errorMsg").classList.remove("show");
         }
 
         async function predict() {
             if (!selectedFile) return;
-            const btn = document.getElementById("predictBtn");
+            const btn     = document.getElementById("predictBtn");
             const spinner = document.getElementById("spinner");
-            const errBox = document.getElementById("errorMsg");
+            const errBox  = document.getElementById("errorMsg");
 
             btn.disabled = true;
             spinner.classList.add("show");
             errBox.classList.remove("show");
             document.getElementById("classifyResult").classList.remove("show");
             document.getElementById("segmentResult").classList.remove("show");
+            document.getElementById("detectResult").classList.remove("show");
+
+            const endpoints = {
+                classify: "/predict/classify",
+                segment:  "/predict/segment",
+                detect:   "/predict/detect",
+            };
 
             const formData = new FormData();
             formData.append("image", selectedFile);
 
             try {
-                const endpoint = currentModel === "classify"
-                    ? "/predict/classify" : "/predict/segment";
-                const res = await fetch(endpoint, { method: "POST", body: formData });
+                const res  = await fetch(endpoints[currentModel], { method: "POST", body: formData });
                 const data = await res.json();
-
                 if (!data.success) throw new Error(data.error || "Échec de la prédiction");
 
-                if (currentModel === "classify") {
-                    showClassification(data.result);
-                } else {
-                    showSegmentation(data.result);
-                }
+                if      (currentModel === "classify") showClassification(data.result);
+                else if (currentModel === "segment")  showSegmentation(data.result);
+                else if (currentModel === "detect")   showDetection(data.result);
             } catch (err) {
                 errBox.textContent = "❌ " + err.message;
                 errBox.classList.add("show");
@@ -221,8 +279,7 @@
             document.getElementById("predLabel").textContent =
                 result.predicted_label + " (classe " + result.predicted_class + ")";
             document.getElementById("predConf").textContent =
-                "Confiance: " + (result.confidence * 100).toFixed(1) + "%";
-
+                "Confiance : " + (result.confidence * 100).toFixed(1) + "%";
             const bars = document.getElementById("probBars");
             bars.innerHTML = "";
             for (const [label, prob] of Object.entries(result.probabilities)) {
@@ -233,7 +290,6 @@
                     `<div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>` +
                     `<span class="bar-val">${(prob * 100).toFixed(1)}%</span>`;
                 bars.appendChild(row);
-                // Animer la barre
                 setTimeout(() => row.querySelector(".bar-fill").style.width = (prob * 100) + "%", 50);
             }
             document.getElementById("classifyResult").classList.add("show");
@@ -242,8 +298,32 @@
         function showSegmentation(result) {
             document.getElementById("maskPreview").src = result.mask;
             document.getElementById("fgRatio").textContent =
-                "Surface segmentée: " + (result.foreground_ratio * 100).toFixed(1) + "% de l'image";
+                "Surface segmentée : " + (result.foreground_ratio * 100).toFixed(1) + "% de l'image";
             document.getElementById("segmentResult").classList.add("show");
+        }
+
+        function showDetection(result) {
+            const n = result.num_detections;
+            document.getElementById("detCount").textContent =
+                n === 0 ? "Aucune anomalie détectée" :
+                n === 1 ? "1 anomalie détectée" :
+                `${n} anomalies détectées`;
+
+            document.getElementById("annotatedPreview").src = result.annotated_image;
+
+            const list = document.getElementById("detList");
+            list.innerHTML = "";
+            result.detections.forEach((d, i) => {
+                const item = document.createElement("div");
+                item.className = "det-item";
+                item.innerHTML =
+                    `<span class="det-label">🔍 ${d.label}</span>` +
+                    `<span class="det-box">[${d.box.map(v => Math.round(v)).join(", ")}]</span>` +
+                    `<span class="det-score">${(d.score * 100).toFixed(1)}%</span>`;
+                list.appendChild(item);
+            });
+
+            document.getElementById("detectResult").classList.add("show");
         }
     </script>
 </body>

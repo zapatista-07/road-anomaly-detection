@@ -218,3 +218,110 @@ def predict_segmentation(
         "mask_image": mask_img,
         "foreground_ratio": fg_ratio,
     }
+
+# ===========================================================================
+#  Mask R-CNN — Samar
+# ===========================================================================
+# Noms des classes : background (ignoré) + anomalie
+MASKRCNN_CLASS_NAMES = ["__background__", "anomalie"]
+
+# Seuil de confiance pour filtrer les détections
+MASKRCNN_SCORE_THRESH = 0.5
+
+
+def load_maskrcnn(
+    path: str = "../models/objectif_samar/mask_rcnn_final.pth",
+    num_classes: int = 2,
+) -> nn.Module:
+    """Charge le Mask R-CNN (ResNet50-FPN, 2 classes) de Samar."""
+    from torchvision.models.detection import maskrcnn_resnet50_fpn
+    from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+    from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+
+    model = maskrcnn_resnet50_fpn(weights=None)
+
+    # Remplacer le box predictor
+    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+    # Remplacer le mask predictor
+    in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
+    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, 256, num_classes)
+
+    state_dict = torch.load(path, map_location=DEVICE, weights_only=True)
+    model.load_state_dict(state_dict)
+    model.to(DEVICE)
+    model.eval()
+    return model
+
+
+@torch.inference_mode()
+def predict_detection(
+    model: nn.Module,
+    image: Image.Image,
+    score_thresh: float = MASKRCNN_SCORE_THRESH,
+) -> dict:
+    """Détection d'instances avec Mask R-CNN.
+
+    Retourne les boîtes, scores, labels et masques des détections
+    dont le score dépasse score_thresh.
+    Génère aussi une image annotée (PIL) avec les boîtes et masques dessinés.
+    """
+    import numpy as np
+    from PIL import ImageDraw
+
+    orig_w, orig_h = image.size
+
+    # Preprocessing : ToTensor uniquement (Mask R-CNN normalise en interne)
+    to_tensor = transforms.ToTensor()
+    tensor = to_tensor(image).to(DEVICE)  # (3, H, W) float [0,1]
+
+    outputs = model([tensor])[0]
+
+    # Filtrer par score
+    scores  = outputs["scores"].cpu().numpy()
+    boxes   = outputs["boxes"].cpu().numpy()
+    labels  = outputs["labels"].cpu().numpy()
+    masks   = outputs["masks"].cpu().numpy()   # (N, 1, H, W)
+
+    keep = scores >= score_thresh
+    scores  = scores[keep]
+    boxes   = boxes[keep]
+    labels  = labels[keep]
+    masks   = masks[keep]
+
+    # ── Image annotée ──
+    annotated = image.copy().convert("RGBA")
+    overlay   = Image.new("RGBA", annotated.size, (0, 0, 0, 0))
+    draw      = ImageDraw.Draw(overlay)
+
+    detections = []
+    for i, (box, score, label, mask) in enumerate(zip(boxes, scores, labels, masks)):
+        x1, y1, x2, y2 = box.tolist()
+        label_name = MASKRCNN_CLASS_NAMES[int(label)] if int(label) < len(MASKRCNN_CLASS_NAMES) else str(label)
+
+        # Dessiner la boîte
+        draw.rectangle([x1, y1, x2, y2], outline=(255, 80, 80, 230), width=3)
+        draw.text((x1 + 4, y1 + 2), f"{label_name} {score:.2f}", fill=(255, 255, 255, 255))
+
+        # Superposer le masque en rouge semi-transparent
+        mask_bin = (mask[0] > 0.5).astype(np.uint8)
+        mask_rgba = np.zeros((*mask_bin.shape, 4), dtype=np.uint8)
+        mask_rgba[mask_bin == 1] = [255, 60, 60, 100]
+        mask_pil = Image.fromarray(mask_rgba, mode="RGBA")
+        mask_pil = mask_pil.resize((orig_w, orig_h), Image.NEAREST)
+        overlay.paste(mask_pil, (0, 0), mask_pil)
+
+        detections.append({
+            "box": [round(v, 1) for v in [x1, y1, x2, y2]],
+            "label": label_name,
+            "score": round(float(score), 4),
+        })
+
+    annotated = Image.alpha_composite(annotated, overlay).convert("RGB")
+
+    return {
+        "annotated_image": annotated,
+        "detections": detections,
+        "num_detections": len(detections),
+    }

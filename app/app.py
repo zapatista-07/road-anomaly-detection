@@ -4,8 +4,9 @@ Application Flask de déploiement des modèles de deep learning.
 Endpoints
 ---------
 GET  /                      Page d'accueil (interface web)
-POST /predict/classify      Classification d'image (ResNet18, 3 classes)
-POST /predict/segment       Segmentation binaire (U-Net)
+POST /predict/classify      Classification d'image (ResNet18, 3 classes)       — Louay
+POST /predict/segment       Segmentation binaire (U-Net)                        — Louay
+POST /predict/detect        Détection d'instances (Mask R-CNN)                  — Samar
 GET  /health                État du service + modèles chargés
 
 Lancement
@@ -26,8 +27,10 @@ from models import (
     CLASS_NAMES,
     load_resnet,
     load_unet,
+    load_maskrcnn,
     predict_classification,
     predict_segmentation,
+    predict_detection,
 )
 from PIL import Image
 
@@ -47,9 +50,10 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "webp", "tiff"}
 # Chargement des modèles au démarrage (une seule fois)
 # ---------------------------------------------------------------------------
 logger.info("Chargement des modèles...")
-resnet_model = load_resnet()
-unet_model = load_unet()
-logger.info("Modèles chargés: ResNet18 (%d classes) + U-Net (segmentation binaire)",
+resnet_model  = load_resnet()
+unet_model    = load_unet()
+maskrcnn_model = load_maskrcnn()
+logger.info("Modèles chargés: ResNet18 (%d classes) + U-Net (segmentation) + Mask R-CNN (détection)",
             len(CLASS_NAMES))
 
 
@@ -110,11 +114,48 @@ def health():
     return jsonify(
         status="ok",
         models={
-            "resnet18": {"type": "classification", "num_classes": len(CLASS_NAMES)},
-            "unet": {"type": "segmentation", "output_channels": 1},
+            "resnet18":  {"type": "classification", "num_classes": len(CLASS_NAMES),  "author": "Louay"},
+            "unet":      {"type": "segmentation",   "output_channels": 1,             "author": "Louay"},
+            "maskrcnn":  {"type": "detection",      "num_classes": 2,                 "author": "Samar"},
         },
         device=str(models.DEVICE),
     )
+
+
+@app.route("/predict/detect", methods=["POST"])
+def detect():
+    """Détection d'instances avec Mask R-CNN (Samar).
+
+    Réponse JSON:
+        {
+            "success": true,
+            "result": {
+                "annotated_image": "<base64 PNG data URI>",
+                "detections": [
+                    {"box": [x1,y1,x2,y2], "label": "anomalie", "score": 0.92}
+                ],
+                "num_detections": 1
+            }
+        }
+    """
+    try:
+        image = read_uploaded_image()
+        det = predict_detection(maskrcnn_model, image)
+        img_b64 = mask_to_base64_png(det["annotated_image"])
+        logger.info("Détection: %d objet(s) trouvé(s)", det["num_detections"])
+        return jsonify(
+            success=True,
+            result={
+                "annotated_image": f"data:image/png;base64,{img_b64}",
+                "detections": det["detections"],
+                "num_detections": det["num_detections"],
+            },
+        )
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception as exc:
+        logger.exception("Erreur lors de la détection")
+        return jsonify(success=False, error=f"Erreur interne: {exc}"), 500
 
 
 @app.route("/predict/classify", methods=["POST"])
