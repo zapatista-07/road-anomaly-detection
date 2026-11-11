@@ -138,40 +138,71 @@
             line-height: 1.65;
         }
 
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin-top: 1.2rem;
+        }
+
+        .tag {
+            font-size: .78rem;
+            font-weight: 500;
+            padding: .3rem .75rem;
+            border-radius: 999px;
+            background: rgba(15, 118, 110, .1);
+            color: var(--accent-deep);
+            border: 1px solid rgba(15, 118, 110, .2);
+        }
+
+        .context-box {
             background: var(--card);
             border: 1px solid var(--line);
             border-radius: 22px;
             box-shadow: var(--shadow);
-            overflow: hidden;
+            padding: 1.5rem;
         }
 
-        .stat {
-            padding: 1.25rem 1rem 1.15rem;
-            text-align: center;
-        }
-
-        .stat + .stat { border-left: 1px solid var(--line); }
-
-        .stat strong {
-            display: block;
-            font-family: var(--serif);
-            font-size: 2.3rem;
-            font-weight: 520;
-            letter-spacing: -.04em;
-            line-height: 1;
-        }
-
-        .stat span {
-            display: block;
-            margin-top: .4rem;
-            color: var(--muted);
+        .context-label {
             font-size: .72rem;
+            font-weight: 600;
             letter-spacing: .12em;
             text-transform: uppercase;
+            color: var(--accent-deep);
+            margin-bottom: .75rem;
         }
+
+        .context-text {
+            color: var(--soft);
+            font-size: .92rem;
+            font-weight: 300;
+            line-height: 1.6;
+            margin-bottom: 1.2rem;
+        }
+
+        .model-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+        }
+
+        .model-list li {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            font-size: .85rem;
+            color: var(--soft);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .dot.green { background: var(--ok); }
 
         .section-head {
             display: flex;
@@ -366,27 +397,34 @@
 
     <header class="hero">
         <div>
-            <p class="eyebrow">Plateforme de l'équipe</p>
+            <p class="eyebrow">Plateforme de l'équipe · 2026</p>
             <h1>Détection d'anomalie</h1>
             <p class="lead">
-                Projet de groupe consacré à l'inspection visuelle : chaque membre
-                entraîne et déploie son propre modèle pour repérer les défauts sur
-                des images, le tout réuni dans une seule application web.
+                Système de vision par ordinateur pour l'inspection automatique
+                des routes — détection d'obstacles, d'animaux et de zones
+                anormales à partir d'images, via des modèles ResNet, U-Net,
+                DeepLab et YOLO déployés en temps réel.
             </p>
+            <div class="tags">
+                <span class="tag">🛣 Routes</span>
+                <span class="tag">🐄 Animaux</span>
+                <span class="tag">⚠️ Obstacles</span>
+                <span class="tag">🔍 Segmentation</span>
+                <span class="tag">📦 Détection</span>
+            </div>
         </div>
-        <div class="stats">
-            <div class="stat">
-                <strong>6</strong>
-                <span>Membres</span>
-            </div>
-            <div class="stat">
-                <strong>5</strong>
-                <span>Déployés</span>
-            </div>
-            <div class="stat">
-                <strong>1</strong>
-                <span>En cours</span>
-            </div>
+        <div class="context-box">
+            <p class="context-label">Objectif du projet</p>
+            <p class="context-text">
+                Identifier en temps réel les anomalies présentes sur les routes —
+                animaux traversants, cônes, débris — pour améliorer la sécurité
+                routière grâce à l'intelligence artificielle.
+            </p>
+            <ul class="model-list">
+                <li><span class="dot green"></span>Classification — ResNet18</li>
+                <li><span class="dot green"></span>Segmentation — U-Net · DeepLab</li>
+                <li><span class="dot green"></span>Détection — Mask R-CNN · YOLOv8</li>
+            </ul>
         </div>
     </header>
 
