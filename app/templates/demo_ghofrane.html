@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détection YOLOv8 — Ghofrane</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a; color: #e2e8f0; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; padding: 2rem;
+        }
+        .back-link {
+            align-self: flex-start; margin-bottom: 1.5rem;
+            color: #64748b; font-size: .85rem; text-decoration: none;
+            display: flex; align-items: center; gap: .4rem; transition: color .2s;
+        }
+        .back-link:hover { color: #94a3b8; }
+        .author-header { text-align: center; margin-bottom: 2rem; }
+        .author-badge {
+            display: inline-flex; align-items: center; gap: .5rem;
+            background: #2e1065; border: 1px solid #a78bfa;
+            color: #a78bfa; font-size: .75rem; font-weight: 600;
+            padding: .35rem .9rem; border-radius: 999px; margin-bottom: 1rem;
+        }
+        h1 { font-size: 1.6rem; font-weight: 700; color: #f8fafc; margin-bottom: .25rem; }
+        .subtitle { color: #94a3b8; font-size: .9rem; }
+        .card {
+            background: #1e293b; border-radius: 12px; padding: 1.75rem;
+            width: 100%; max-width: 640px; margin-bottom: 1.5rem;
+            border: 1px solid #334155;
+        }
+        .card h2 { font-size: 1.05rem; margin-bottom: 1rem; color: #cbd5e1; }
+        .drop-zone {
+            border: 2px dashed #475569; border-radius: 10px; padding: 2rem;
+            text-align: center; cursor: pointer; transition: border-color .2s;
+        }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #a78bfa; background: #2e106522; }
+        .drop-zone p { color: #64748b; font-size: .9rem; }
+        #fileInput { display: none; }
+        .preview-wrap { margin-top: 1rem; text-align: center; }
+        #preview { max-width: 100%; max-height: 320px; border-radius: 8px; }
+        .btn {
+            width: 100%; margin-top: 1.25rem; padding: .8rem; border: none;
+            border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
+            background: #7c3aed; color: #fff; transition: background .2s;
+        }
+        .btn:hover { background: #6d28d9; }
+        .btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+        .result-card { display: none; }
+        .result-card.show { display: block; }
+        .det-count { font-size: 1.2rem; font-weight: 700; color: #a78bfa; margin-bottom: .75rem; }
+        #annotatedPreview { max-width: 100%; border-radius: 8px; margin-bottom: .75rem; }
+        .det-list { display: flex; flex-direction: column; gap: .5rem; }
+        .det-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #0f172a; border: 1px solid #1e2d4a; border-radius: 8px;
+            padding: .55rem .85rem; font-size: .85rem;
+        }
+        .det-label { color: #f1f5f9; font-weight: 500; }
+        .det-box   { color: #64748b; font-size: .75rem; }
+        .det-score { background: #2e1065; color: #a78bfa; padding: .2rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+        .error-msg {
+            background: #7f1d1d33; border: 1px solid #7f1d1d; color: #fca5a5;
+            padding: .75rem 1rem; border-radius: 8px; margin-top: 1rem; font-size: .9rem; display: none;
+        }
+        .error-msg.show { display: block; }
+        .spinner { display: none; text-align: center; padding: 1rem; color: #64748b; }
+        .spinner.show { display: block; }
+        .spinner::after {
+            content: ""; display: inline-block; width: 24px; height: 24px;
+            border: 3px solid #334155; border-top-color: #a78bfa; border-radius: 50%;
+            animation: spin .6s linear infinite; vertical-align: middle; margin-left: .5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← Retour à l'accueil</a>
+    <div class="author-header">
+        <div class="author-badge">👤 Ghofrane</div>
+        <h1>Détection d'objets</h1>
+        <p class="subtitle">YOLOv8 — 3 classes : animal · cone · autre</p>
+    </div>
+    <div class="card">
+        <h2>Importer une image</h2>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <p>📎 Cliquez ou glissez une image ici<br><small>PNG · JPG · BMP · WEBP</small></p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        <div class="preview-wrap" id="previewWrap" style="display:none">
+            <img id="preview" alt="Aperçu">
+        </div>
+        <button class="btn" id="predictBtn" onclick="predict()" disabled>Lancer la détection</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="spinner" id="spinner">Détection en cours</div>
+    <div class="card result-card" id="result">
+        <h2>Résultat — Détection YOLOv8</h2>
+        <div class="det-count" id="detCount"></div>
+        <img id="annotatedPreview" alt="Image annotée">
+        <div class="det-list" id="detList"></div>
+    </div>
+    <script>
+        let selectedFile = null;
+        const fileInput = document.getElementById("fileInput");
+        const dropZone  = document.getElementById("dropZone");
+        fileInput.addEventListener("change", e => handleFile(e.target.files[0]));
+        ["dragover","dragenter"].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add("dragover"); }));
+        ["dragleave","drop"].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove("dragover"); }));
+        dropZone.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
+        function handleFile(file) {
+            if (!file) return;
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = e => { document.getElementById("preview").src = e.target.result; document.getElementById("previewWrap").style.display = "block"; };
+            reader.readAsDataURL(file);
+            document.getElementById("predictBtn").disabled = false;
+            document.getElementById("result").classList.remove("show");
+            document.getElementById("errorMsg").classList.remove("show");
+        }
+        async function predict() {
+            if (!selectedFile) return;
+            const btn = document.getElementById("predictBtn");
+            const spinner = document.getElementById("spinner");
+            const errBox = document.getElementById("errorMsg");
+            btn.disabled = true; spinner.classList.add("show"); errBox.classList.remove("show");
+            document.getElementById("result").classList.remove("show");
+            const formData = new FormData();
+            formData.append("image", selectedFile);
+            try {
+                const res  = await fetch("/predict/ghofrane", { method: "POST", body: formData });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || "Échec");
+                const r = data.result;
+                const n = r.num_detections;
+                document.getElementById("detCount").textContent =
+                    n === 0 ? "Aucun objet détecté" : n === 1 ? "1 objet détecté" : n + " objets détectés";
+                document.getElementById("annotatedPreview").src = r.annotated_image;
+                const list = document.getElementById("detList"); list.innerHTML = "";
+                if (n === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:1rem;color:#64748b">Aucune détection avec confiance ≥ 25%</div>';
+                } else {
+                    r.detections.forEach(d => {
+                        const item = document.createElement("div"); item.className = "det-item";
+                        item.innerHTML = `<span class="det-label">🔍 ${d.label}</span><span class="det-box">[${d.box.map(v=>Math.round(v)).join(", ")}]</span><span class="det-score">${(d.score*100).toFixed(1)}%</span>`;
+                        list.appendChild(item);
+                    });
+                }
+                document.getElementById("result").classList.add("show");
+            } catch(err) { errBox.textContent = "❌ " + err.message; errBox.classList.add("show"); }
+            finally { btn.disabled = false; spinner.classList.remove("show"); }
+        }
+    </script>
+</body>
+</html>

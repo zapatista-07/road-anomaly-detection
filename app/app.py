@@ -28,9 +28,15 @@ from models import (
     load_resnet,
     load_unet,
     load_maskrcnn,
+    load_roua_toui,
+    load_roua_lz,
+    load_ghofrane,
     predict_classification,
     predict_segmentation,
     predict_detection,
+    predict_roua_toui,
+    predict_roua_lz,
+    predict_ghofrane,
 )
 from PIL import Image
 
@@ -50,11 +56,13 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "webp", "tiff"}
 # Chargement des modèles au démarrage (une seule fois)
 # ---------------------------------------------------------------------------
 logger.info("Chargement des modèles...")
-resnet_model  = load_resnet()
-unet_model    = load_unet()
-maskrcnn_model = load_maskrcnn()
-logger.info("Modèles chargés: ResNet18 (%d classes) + U-Net (segmentation) + Mask R-CNN (détection)",
-            len(CLASS_NAMES))
+resnet_model    = load_resnet()
+unet_model      = load_unet()
+maskrcnn_model  = load_maskrcnn()
+roua_toui_model = load_roua_toui()
+roua_lz_model   = load_roua_lz()
+ghofrane_model  = load_ghofrane()
+logger.info("Modèles chargés: ResNet18 + U-Net (Louay) | Mask R-CNN (Samar) | ResNet18 (Roua Toui) | DeepLab (Roua LZ) | YOLOv8 (Ghofrane)")
 
 
 # ---------------------------------------------------------------------------
@@ -109,14 +117,37 @@ def index():
     return render_template("index.html", classes=CLASS_NAMES)
 
 
+@app.route("/demo/samar")
+def demo_samar():
+    return render_template("demo_samar.html")
+
+
+@app.route("/demo/roua_toui")
+def demo_roua_toui():
+    return render_template("demo_roua_toui.html")
+
+
+@app.route("/demo/roua_lz")
+def demo_roua_lz():
+    return render_template("demo_roua_lz.html")
+
+
+@app.route("/demo/ghofrane")
+def demo_ghofrane():
+    return render_template("demo_ghofrane.html")
+
+
 @app.route("/health")
 def health():
     return jsonify(
         status="ok",
         models={
-            "resnet18":  {"type": "classification", "num_classes": len(CLASS_NAMES),  "author": "Louay"},
-            "unet":      {"type": "segmentation",   "output_channels": 1,             "author": "Louay"},
-            "maskrcnn":  {"type": "detection",      "num_classes": 2,                 "author": "Samar"},
+            "resnet18":   {"type": "classification", "num_classes": len(CLASS_NAMES),  "author": "Louay"},
+            "unet":       {"type": "segmentation",   "output_channels": 1,             "author": "Louay"},
+            "maskrcnn":   {"type": "detection",      "num_classes": 2,                 "author": "Samar"},
+            "roua_toui":  {"type": "classification", "num_classes": 3,                 "author": "Roua Toui"},
+            "roua_lz":    {"type": "segmentation",   "output_channels": 1,             "author": "Roua LZ"},
+            "ghofrane":   {"type": "detection",      "num_classes": 3,                 "author": "Ghofrane"},
         },
         device=str(models.DEVICE),
     )
@@ -215,6 +246,63 @@ def segment():
         return jsonify(success=False, error=str(exc)), 400
     except Exception as exc:
         logger.exception("Erreur lors de la segmentation")
+        return jsonify(success=False, error=f"Erreur interne: {exc}"), 500
+
+
+@app.route("/predict/roua_toui", methods=["POST"])
+def classify_roua_toui():
+    try:
+        image = read_uploaded_image()
+        result = predict_roua_toui(roua_toui_model, image)
+        logger.info("Roua Toui: %s (%.1f%%)", result["predicted_label"], result["confidence"] * 100)
+        return jsonify(success=True, result=result)
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception as exc:
+        logger.exception("Erreur Roua Toui")
+        return jsonify(success=False, error=f"Erreur interne: {exc}"), 500
+
+
+@app.route("/predict/roua_lz", methods=["POST"])
+def segment_roua_lz():
+    try:
+        image = read_uploaded_image()
+        seg = predict_roua_lz(roua_lz_model, image)
+        mask_b64 = mask_to_base64_png(seg["mask_image"])
+        logger.info("Roua LZ segmentation: %.1f%% premier plan", seg["foreground_ratio"] * 100)
+        return jsonify(
+            success=True,
+            result={
+                "mask": f"data:image/png;base64,{mask_b64}",
+                "foreground_ratio": round(seg["foreground_ratio"], 4),
+            },
+        )
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception as exc:
+        logger.exception("Erreur Roua LZ")
+        return jsonify(success=False, error=f"Erreur interne: {exc}"), 500
+
+
+@app.route("/predict/ghofrane", methods=["POST"])
+def detect_ghofrane():
+    try:
+        image = read_uploaded_image()
+        det = predict_ghofrane(ghofrane_model, image)
+        img_b64 = mask_to_base64_png(det["annotated_image"])
+        logger.info("Ghofrane: %d objet(s)", det["num_detections"])
+        return jsonify(
+            success=True,
+            result={
+                "annotated_image": f"data:image/png;base64,{img_b64}",
+                "detections": det["detections"],
+                "num_detections": det["num_detections"],
+            },
+        )
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception as exc:
+        logger.exception("Erreur Ghofrane")
         return jsonify(success=False, error=f"Erreur interne: {exc}"), 500
 
 

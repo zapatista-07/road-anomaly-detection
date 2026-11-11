@@ -325,3 +325,306 @@ def predict_detection(
         "detections": detections,
         "num_detections": len(detections),
     }
+
+# ===========================================================================
+#  Roua Toui — ResNet18 Classification (3 classes : animals, obstacles, other)
+# ===========================================================================
+ROUA_TOUI_CLASS_NAMES = ["animals", "obstacles", "other"]
+
+
+class RouaTouiModel(nn.Module):
+    """ResNet18 backbone + head.fc Linear(4096, 3)."""
+
+    def __init__(self):
+        super().__init__()
+        base = tv_models.resnet18(weights=None)
+        # features = tout sauf avgpool et fc
+        self.features = nn.Sequential(
+            base.conv1, base.bn1, base.relu, base.maxpool,
+            base.layer1, base.layer2, base.layer3, base.layer4,
+        )
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+        )
+        self.head_fc = nn.Linear(4096, len(ROUA_TOUI_CLASS_NAMES))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+        # AdaptiveAvgPool2d((1,8)) → 512*1*8 = 4096
+        x = nn.functional.adaptive_avg_pool2d(x, (1, 8))
+        x = x.flatten(1)
+        return self.head_fc(x)
+
+
+def load_roua_toui(
+    path: str = "../models/objectif_roua_toui/model (1).pt",
+) -> nn.Module:
+    """Charge le modèle de classification de Roua Toui."""
+    model = RouaTouiModel()
+    state = torch.load(path, map_location=DEVICE, weights_only=True)
+    # Remapper head.fc -> head_fc
+    new_state = {}
+    for k, v in state.items():
+        new_key = k.replace("head.fc", "head_fc")
+        # features.0 -> features.0 (conv1), features.1 -> features.1 (bn1)
+        # features.4..7 -> features.4..7 (layer1..4)
+        new_state[new_key] = v
+    model.load_state_dict(new_state)
+    model.to(DEVICE)
+    model.eval()
+    return model
+
+
+@torch.inference_mode()
+def predict_roua_toui(model: nn.Module, image: Image.Image) -> dict:
+    """Classification avec le modèle de Roua Toui."""
+    transform = get_classification_transform()
+    tensor = transform(image).unsqueeze(0).to(DEVICE)
+    logits = model(tensor)
+    probs = torch.softmax(logits, dim=1).squeeze(0)
+    idx = int(torch.argmax(probs))
+    return {
+        "predicted_class": idx,
+        "predicted_label": ROUA_TOUI_CLASS_NAMES[idx],
+        "confidence": float(probs[idx]),
+        "probabilities": {
+            ROUA_TOUI_CLASS_NAMES[i]: float(probs[i])
+            for i in range(len(ROUA_TOUI_CLASS_NAMES))
+        },
+    }
+
+
+# ===========================================================================
+#  Roua LZ — DeepLab v3+ segmentation binaire (ResNet50 encoder + ASPP)
+# ===========================================================================
+def load_roua_lz(
+    path: str = "../models/objectif_roua_lz/model.pt",
+) -> nn.Module:
+    """Charge le modèle DeepLab-like de Roua LZ avec remapping de clés."""
+    model = _RouaLZModel()
+    state = torch.load(path, map_location=DEVICE, weights_only=True)
+
+    # Le state_dict utilise encoder.conv1 / encoder.layer* et segmentation_head.0.*
+    # On remappe vers les noms internes du modèle
+    new_state = {}
+    for k, v in state.items():
+        # encoder.conv1 → _enc_base.conv1
+        if k.startswith("encoder.conv1") or k.startswith("encoder.bn1"):
+            new_key = k.replace("encoder.", "_enc_base.", 1)
+        elif k.startswith("encoder.layer"):
+            new_key = k.replace("encoder.", "_enc_base.", 1)
+        # segmentation_head.0.weight → segmentation_head.weight
+        elif k == "segmentation_head.0.weight":
+            new_key = "segmentation_head.weight"
+        elif k == "segmentation_head.0.bias":
+            new_key = "segmentation_head.bias"
+        else:
+            new_key = k
+        new_state[new_key] = v
+
+    model.load_state_dict(new_state, strict=False)
+    model.to(DEVICE)
+    model.eval()
+    return model
+
+
+class _ASPP(nn.Module):
+    """ASPP module correspondant exactement au state dict de Roua LZ."""
+
+    def __init__(self):
+        super().__init__()
+        # convs[0] : 1×1 conv
+        self.convs = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(512, 256, 1, bias=False),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+            ),
+            # convs[1] : depthwise séparable rate 6
+            nn.Sequential(
+                nn.Sequential(
+                    nn.Conv2d(512, 512, 3, padding=6, dilation=6, groups=512, bias=False),
+                    nn.Conv2d(512, 256, 1, bias=False),
+                ),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+            ),
+            # convs[2] : depthwise séparable rate 12
+            nn.Sequential(
+                nn.Sequential(
+                    nn.Conv2d(512, 512, 3, padding=12, dilation=12, groups=512, bias=False),
+                    nn.Conv2d(512, 256, 1, bias=False),
+                ),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+            ),
+            # convs[3] : depthwise séparable rate 18
+            nn.Sequential(
+                nn.Sequential(
+                    nn.Conv2d(512, 512, 3, padding=18, dilation=18, groups=512, bias=False),
+                    nn.Conv2d(512, 256, 1, bias=False),
+                ),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+            ),
+            # convs[4] : global avg pool
+            nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Conv2d(512, 256, 1, bias=False),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+            ),
+        ])
+        self.project = nn.Sequential(
+            nn.Conv2d(1280, 256, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h, w = x.shape[2:]
+        results = []
+        for i, conv in enumerate(self.convs):
+            if i == 4:
+                res = conv(x)
+                res = nn.functional.interpolate(res, size=(h, w), mode="bilinear", align_corners=False)
+            else:
+                res = conv(x)
+            results.append(res)
+        return self.project(torch.cat(results, dim=1))
+
+
+class _RouaLZModel(nn.Module):
+    """DeepLab-like : ResNet34 encoder + ASPP decoder + segmentation_head."""
+
+    def __init__(self):
+        super().__init__()
+        base = tv_models.resnet34(weights=None)
+        self._enc_base = base
+        self.decoder = nn.ModuleDict({
+            "aspp": nn.ModuleList([
+                _ASPP(),
+                nn.Sequential(
+                    nn.Conv2d(256, 256, 3, padding=1, groups=256, bias=False),
+                    nn.Conv2d(256, 256, 1, bias=False),
+                ),
+                nn.BatchNorm2d(256),
+            ]),
+            "block1": nn.Sequential(
+                nn.Conv2d(64, 48, 1, bias=False),
+                nn.BatchNorm2d(48),
+                nn.ReLU(inplace=True),
+            ),
+            "block2": nn.Sequential(
+                nn.Sequential(
+                    nn.Conv2d(304, 304, 3, padding=1, groups=304, bias=False),
+                    nn.Conv2d(304, 256, 1, bias=False),
+                ),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+            ),
+        })
+        self.segmentation_head = nn.Conv2d(256, 1, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h, w = x.shape[2:]
+        base = self._enc_base
+        x0 = base.relu(base.bn1(base.conv1(x)))
+        x0 = base.maxpool(x0)
+        x1 = base.layer1(x0)   # skip : 64 channels
+        x2 = base.layer2(x1)
+        x3 = base.layer3(x2)
+        x4 = base.layer4(x3)   # 512 channels
+
+        # ASPP
+        aspp_out = self.decoder["aspp"][0](x4)
+        aspp_out = self.decoder["aspp"][1](aspp_out)
+        aspp_out = self.decoder["aspp"][2](aspp_out)
+        aspp_out = nn.functional.interpolate(
+            aspp_out, size=x1.shape[2:], mode="bilinear", align_corners=False
+        )
+
+        # Skip connection block1
+        skip = self.decoder["block1"](x1)
+
+        # Concat + block2
+        cat = torch.cat([aspp_out, skip], dim=1)  # 256+48=304
+        out = self.decoder["block2"](cat)
+
+        # Upsample to original size
+        out = nn.functional.interpolate(out, size=(h, w), mode="bilinear", align_corners=False)
+        return self.segmentation_head(out)
+
+
+@torch.inference_mode()
+def predict_roua_lz(model: nn.Module, image: Image.Image) -> dict:
+    """Segmentation binaire avec le modèle de Roua LZ."""
+    orig_w, orig_h = image.size
+    transform = get_segmentation_transform()
+    tensor = transform(image).unsqueeze(0).to(DEVICE)
+    logits = model(tensor)
+    prob = torch.sigmoid(logits).squeeze(0).squeeze(0)
+    mask = (prob > 0.5).byte().cpu()
+    mask_img = Image.fromarray((mask * 255).numpy(), mode="L")
+    mask_img = mask_img.resize((orig_w, orig_h), Image.NEAREST)
+    fg_ratio = float(mask.float().mean())
+    return {
+        "mask_image": mask_img,
+        "foreground_ratio": fg_ratio,
+    }
+
+
+# ===========================================================================
+#  Ghofrane — YOLOv8 Détection (3 classes : animal, cone, autre)
+# ===========================================================================
+GHOFRANE_CLASS_NAMES = ["animal", "cone", "autre"]
+
+
+def load_ghofrane(
+    path: str = "../models/objectif_ghofrane/model.pt",
+) -> object:
+    """Charge le modèle YOLOv8 de Ghofrane via Ultralytics."""
+    from ultralytics import YOLO
+    model = YOLO(path)
+    return model
+
+
+@torch.inference_mode()
+def predict_ghofrane(model, image: Image.Image, conf_thresh: float = 0.25) -> dict:
+    """Détection avec YOLOv8 de Ghofrane.
+
+    Retourne l'image annotée + liste des détections.
+    """
+    import numpy as np
+    from PIL import ImageDraw
+
+    orig_w, orig_h = image.size
+
+    # Inférence YOLO
+    results = model.predict(source=image, conf=conf_thresh, verbose=False)
+    result  = results[0]
+
+    # Image annotée (plot intégré Ultralytics)
+    annotated_arr = result.plot()  # numpy BGR
+    annotated_img = Image.fromarray(annotated_arr[..., ::-1])  # BGR → RGB
+
+    # Liste des détections
+    detections = []
+    if result.boxes is not None:
+        for box in result.boxes:
+            x1, y1, x2, y2 = box.xyxy[0].tolist()
+            score = float(box.conf[0])
+            cls   = int(box.cls[0])
+            label = GHOFRANE_CLASS_NAMES[cls] if cls < len(GHOFRANE_CLASS_NAMES) else str(cls)
+            detections.append({
+                "box":   [round(v, 1) for v in [x1, y1, x2, y2]],
+                "label": label,
+                "score": round(score, 4),
+            })
+
+    return {
+        "annotated_image": annotated_img,
+        "detections":      detections,
+        "num_detections":  len(detections),
+    }
